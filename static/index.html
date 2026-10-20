@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Own AI — Python Edition</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Arial;background:#0b1020;color:#e8ecf8}
+body{max-width:1100px;margin:36px auto;padding:0 18px}h1{margin-bottom:5px}
+.sub{color:#a5b1d0;margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:#141c31;border:1px solid #283653;border-radius:14px;padding:18px;margin:14px 0}
+input,textarea,select,button{box-sizing:border-box;width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #394968;background:#0c1427;color:#eef}
+textarea{min-height:90px}button{background:#6b70f5;border:0;font-weight:700;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#c9d6f5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pill{display:inline-block;padding:5px 9px;background:#222e4b;border-radius:20px;color:#c9d6f5}
+svg{width:100%;min-height:260px;background:#0c1427;border-radius:8px}.doc-row{display:flex;justify-content:space-between;gap:8px;align-items:center;border-bottom:1px solid #283653;padding:8px 0}.doc-row button{width:auto;margin:0}
+</style></head>
+<body>
+<h1>VectorDB — Your Own AI</h1><p class="sub">Python edition · Vector search, document embeddings and local RAG</p>
+<div class="grid">
+<section class="card"><h2>Semantic Search</h2>
+<label>Query vector (comma-separated numbers)</label>
+<input id="vec" value="0.9,0.8,0.7,0.6,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1">
+<div class="row"><select id="algo"><option value="brute">Brute force</option><option value="kdtree">KD-tree</option><option value="hnsw">HNSW (exact fallback)</option></select>
+<select id="metric"><option>cosine</option><option>euclidean</option><option>manhattan</option></select></div>
+<input id="k" type="number" value="5" min="1" max="100"><button onclick="search()">Search</button><pre id="searchOut"></pre></section>
+<section class="card"><h2>Add a Document</h2><input id="title" placeholder="Document title">
+<textarea id="docText" placeholder="Paste notes or document text here..."></textarea>
+<button onclick="insertDoc()">Embed & Insert</button><p class="sub">Requires Ollama and the nomic-embed-text model.</p><pre id="docOut"></pre></section>
+<section class="card"><h2>Ask Your Documents (RAG)</h2><textarea id="question" placeholder="Ask a question about documents you inserted..."></textarea>
+<button onclick="ask()">Ask AI</button><pre id="askOut"></pre></section>
+<section class="card"><h2>System Status</h2><button onclick="status()">Refresh status</button><button onclick="loadItems()">List demo vectors</button><pre id="statusOut"></pre></section>
+<section class="card"><h2>Saved Documents</h2><button onclick="loadDocuments()">Refresh documents</button><div id="documentsOut"></div></section>
+<section class="card"><h2>Vector Visualization</h2><button onclick="loadVisualization()">Refresh visualization</button><svg id="plot" viewBox="0 0 600 300" role="img" aria-label="PCA projection of demo vectors"></svg></section>
+</div>
+<script>
+async function api(path,options={}){const r=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}if(!r.ok)throw new Error(JSON.stringify(d));return d}
+async function search(){try{let vector=document.querySelector('#vec').value.split(',').map(Number);let d=await api('/search',{method:'POST',body:JSON.stringify({vector,k:+document.querySelector('#k').value,metric:document.querySelector('#metric').value,algo:document.querySelector('#algo').value})});document.querySelector('#searchOut').textContent=JSON.stringify(d,null,2)}catch(e){document.querySelector('#searchOut').textContent=e.message}}
+async function insertDoc(){try{let d=await api('/doc/insert',{method:'POST',body:JSON.stringify({title:document.querySelector('#title').value,text:document.querySelector('#docText').value})});document.querySelector('#docOut').textContent=JSON.stringify(d,null,2)}catch(e){document.querySelector('#docOut').textContent=e.message}}
+async function ask(){try{let d=await api('/doc/ask',{method:'POST',body:JSON.stringify({question:document.querySelector('#question').value,k:3})});document.querySelector('#askOut').textContent=JSON.stringify(d,null,2)}catch(e){document.querySelector('#askOut').textContent=e.message}}
+async function status(){try{document.querySelector('#statusOut').textContent=JSON.stringify(await api('/status'),null,2)}catch(e){document.querySelector('#statusOut').textContent=e.message}}
+async function loadItems(){try{document.querySelector('#statusOut').textContent=JSON.stringify(await api('/items'),null,2)}catch(e){document.querySelector('#statusOut').textContent=e.message}}
+async function loadDocuments(){try{let rows=await api('/doc/list');let out=document.querySelector('#documentsOut');out.replaceChildren();if(!rows.length){out.textContent='No saved document chunks.';return}for(let row of rows){let div=document.createElement('div');div.className='doc-row';let label=document.createElement('span');label.textContent=`${row.title} · chunk ${row.chunk_index} · ${row.word_count} words`;let button=document.createElement('button');button.textContent='Delete';button.onclick=async()=>{try{await api(`/doc/delete/${row.id}`,{method:'DELETE'});loadDocuments()}catch(e){out.textContent=e.message}};div.append(label,button);out.append(div)}}catch(e){document.querySelector('#documentsOut').textContent=e.message}}
+async function loadVisualization(){let svg=document.querySelector('#plot');try{let {points}=await api('/visualization');svg.replaceChildren();if(!points.length)return;let xs=points.map(p=>p.x),ys=points.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);for(let p of points){let x=35+(p.x-minX)/(maxX-minX||1)*530,y=265-(p.y-minY)/(maxY-minY||1)*230;let group=document.createElementNS('http://www.w3.org/2000/svg','g'),dot=document.createElementNS('http://www.w3.org/2000/svg','circle'),label=document.createElementNS('http://www.w3.org/2000/svg','text');dot.setAttribute('cx',x);dot.setAttribute('cy',y);dot.setAttribute('r',6);dot.setAttribute('fill','#8d91ff');label.setAttribute('x',x+8);label.setAttribute('y',y+4);label.setAttribute('fill','#e8ecf8');label.setAttribute('font-size','11');label.textContent=p.title;group.append(dot,label);svg.append(group)}}catch(e){svg.textContent=e.message}}
+status();loadDocuments();loadVisualization();
+</script></body></html>
