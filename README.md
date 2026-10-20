@@ -18,9 +18,7 @@
 - SQLite persistence for demo vectors and document chunks
 - Browser controls for listing/deleting saved chunks and viewing the PCA plot
 
-### Important implementation note
-
-The original C++ repository implements HNSW. This starter Python port labels the `hnsw` search option but currently uses the exact-search fallback; it does **not** yet implement a full HNSW graph. That algorithm can be added separately using `hnswlib` or a custom implementation. KD-tree is meaningful for Euclidean/Manhattan metrics; cosine search uses exact ranking.
+ That algorithm can be added separately using `hnswlib` or a custom implementation. KD-tree is meaningful for Euclidean/Manhattan metrics; cosine search uses exact ranking.
 
 ## Requirements
 
@@ -107,7 +105,4 @@ your_own_ai_python/
 - Document embeddings are computed before chunks are committed, avoiding partial saves when Ollama fails.
 - Add automated tests, authentication, and a real HNSW index before presenting this as production-ready.
 
-## Attribution
-
-Inspired by the concepts and documented API of the original repository. Review the upstream repository's license and retain appropriate attribution when publishing a derivative.
 frontend demo-https://my-own-ai-sneha.vercel.app/
